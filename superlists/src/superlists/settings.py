@@ -51,7 +51,9 @@ ALLOWED_HOSTS = ['*']
 CSRF_TRUSTED_ORIGINS = [
     'https://*.fly.dev',
     'https://*.railway.app',
-    'https://to-do-list-deploy-using-railway-production.up.railway.app' 
+    'https://to-do-list-deploy-using-railway-production.up.railway.app',
+    'https://arsu.codes',
+    'https://www.arsu.codes'
 ]
 
 
