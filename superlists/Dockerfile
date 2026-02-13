@@ -18,4 +18,4 @@ RUN adduser --uid 1234 nonroot
 USER nonroot
 
 #CMD python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8888
-CMD ["gunicorn", "--bind", ":8888", "superlists.wsgi:application"]
+CMD python manage.py migrate --noinput && gunicorn superlists.wsgi:application --bind 0.0.0.0:8888
