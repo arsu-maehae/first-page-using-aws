@@ -1,5 +1,6 @@
 from django.test import TestCase
 from lists.models import Item, List
+from django.utils import html
 
 class HomePageTest(TestCase):
     def test_uses_home_template(self):
@@ -33,6 +34,22 @@ class NewListTest(TestCase):
         new_list = List.objects.get()
         self.assertRedirects(response, f"/lists/{new_list.id}/")
 
+    def test_validation_errors_are_sent_back_to_home_page_template(self):
+        response = self.client.post("/lists/new", data={"item_text": ""})
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "home.html")
+        
+        # 🟢 แก้ไข: ใช้ html.escape() ป้องกันเครื่องหมาย '
+        expected_error = html.escape("You can't have an empty list item")
+        self.assertContains(response, expected_error)
+
+    # 🟢 เพิ่มเทสต์นี้เข้าไปใหม่ (เช็คว่าถ้าค่าว่าง ห้ามเซฟลง DB เด็ดขาด)
+    def test_invalid_list_items_arent_saved(self):
+        self.client.post("/lists/new", data={"item_text": ""})
+        self.assertEqual(List.objects.count(), 0)
+        self.assertEqual(Item.objects.count(), 0)
+
+
 
 class ListViewTest(TestCase):
     def test_uses_list_template(self):
@@ -43,11 +60,12 @@ class ListViewTest(TestCase):
     def test_renders_input_form(self):
         mylist = List.objects.create()
         response = self.client.get(f"/lists/{mylist.id}/")
+        
+        # 🟢 แก้ไข: ลบ /add_item ออกไปเลย
         self.assertContains(
             response,
-            f'<form method="POST" action="/lists/{mylist.id}/add_item">',
+            f'<form method="POST" action="/lists/{mylist.id}/">',
         )
-        # แก้ 5: เช็คแค่ attribute เช่นกัน
         self.assertContains(response, 'name="item_text"')
         self.assertContains(response, 'id="id_new_item"')
 
@@ -64,14 +82,13 @@ class ListViewTest(TestCase):
         self.assertContains(response, "itemey 2")
         self.assertNotContains(response, "other list item")
 
-
-class NewItemTest(TestCase):
+    # 🟢 ย้าย 2 ฟังก์ชันนี้มาจาก NewItemTest และลบ /add_item ออกจาก URL
     def test_can_save_a_POST_request_to_an_existing_list(self):
         other_list = List.objects.create()
         correct_list = List.objects.create()
 
         self.client.post(
-            f"/lists/{correct_list.id}/add_item",
+            f"/lists/{correct_list.id}/", # ลบ add_item
             data={"item_text": "A new item for an existing list"},
         )
 
@@ -80,13 +97,15 @@ class NewItemTest(TestCase):
         self.assertEqual(new_item.text, "A new item for an existing list")
         self.assertEqual(new_item.list, correct_list)
 
-    def test_redirects_to_list_view(self):
+    def test_POST_redirects_to_list_view(self):
         other_list = List.objects.create()
         correct_list = List.objects.create()
 
         response = self.client.post(
-            f"/lists/{correct_list.id}/add_item",
+            f"/lists/{correct_list.id}/", # ลบ add_item
             data={"item_text": "A new item for an existing list"},
         )
 
         self.assertRedirects(response, f"/lists/{correct_list.id}/")
+
+        # 🚨 อย่าลืมลบคลาส NewItemTest ด้านล่างสุดทิ้งด้วยนะครับ!

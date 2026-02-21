@@ -16,16 +16,6 @@ import dj_database_url  # <--- เพิ่ม fly.io
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-#SECRET_KEY = 'django-insecure-tblvhvfm=k+d^w1lp9dr3hw3guyj)$%(#9@arkugcj*^^s_1=x'
-
-# อ่าน Key จาก Server ถ้าไม่มีให้ใช้คีย์เดิม
-#SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-tblvhvfm=k+d^w1lp9dr3hw3guyj)$%(#9@arkugcj*^^s_1=x')
     
 
 # --- 1. ส่วนตั้งค่า Environment (Dev vs Prod) ---
@@ -34,20 +24,14 @@ if "DJANGO_DEBUG_FALSE" in os.environ:
     DEBUG = False
     SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
     ALLOWED_HOSTS = [os.environ["DJANGO_ALLOWED_HOST"]]
-    db_path = os.environ["DJANGO_DB_PATH"]
 else:
     # โหมด Development (เครื่องเรา)
     DEBUG = True
     SECRET_KEY = "insecure-key-for-dev"
     ALLOWED_HOSTS = ['*']
-    db_path = BASE_DIR / "db.sqlite3"
-#DEBUG = True --- เปลี่ยนบรรทัดนี้เป็นบรรทัดล่างนี้
 
 # อนุญาตให้เข้าได้ทุกเว็บ
 ALLOWED_HOSTS = ['*']
-
-# (สำคัญมากสำหรับ Fly.io) ป้องกัน Error เรื่อง CSRF
-# เพิ่มให้รองรับทั้ง Fly และ Railway ไปเลย (กันเหนียว)
 CSRF_TRUSTED_ORIGINS = [
     'https://*.fly.dev',
     'https://*.railway.app',
@@ -102,29 +86,26 @@ WSGI_APPLICATION = 'superlists.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-#DATABASES = {
-   # 'default': {
-   #     'ENGINE': 'django.db.backends.sqlite3',
-    #    'NAME': BASE_DIR / 'db.sqlite3',
-   # }
-#}
-
-# Database
-# ถ้ามี DATABASE_URL (จาก Fly) ให้ใช้ Postgres, ถ้าไม่มีใช้ SQLite (เครื่องเรา)
-if os.environ.get('DATABASE_URL'):
+# ถ้ามี DATABASE_HOST ส่งมาจาก Docker ให้ใช้ PostgreSQL
+if 'DATABASE_HOST' in os.environ:
     DATABASES = {
-        'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DATABASE_NAME', 'superlists_db'),
+            'USER': os.environ.get('DATABASE_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DATABASE_PASSWORD', ''),
+            'HOST': os.environ.get('DATABASE_HOST', 'db'),
+            'PORT': os.environ.get('DATABASE_PORT', '5432'),
+        }
     }
 else:
+    # แต่ถ้าเป็นการรันบนเครื่อง Local ปกติ (ไม่มี Docker) ให้ใช้ SQLite เหมือนเดิม
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            "NAME": db_path,
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-
 
 
 # Password validation
@@ -157,9 +138,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'

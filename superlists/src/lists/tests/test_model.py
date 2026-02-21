@@ -1,5 +1,7 @@
+from django.db import IntegrityError
 from django.test import TestCase
 from lists.models import Item, List
+from django.core.exceptions import ValidationError  # <--- เพิ่มบรรทัดนี้
 
 class ListAndItemModelsTest(TestCase):
 
@@ -29,3 +31,15 @@ class ListAndItemModelsTest(TestCase):
         self.assertEqual(first_saved_item.list, mylist) # ตรวจสอบความสัมพันธ์กับ List
         self.assertEqual(second_saved_item.text, 'Item the second')
         self.assertEqual(second_saved_item.list, mylist) # ตรวจสอบความสัมพันธ์กับ List
+
+    def test_cannot_save_null_list_items(self): # second    
+        mylist = List.objects.create()
+        item = Item(list=mylist, text=None)
+        with self.assertRaises(IntegrityError):
+            item.save()
+
+    def test_cannot_save_empty_list_items(self):  #first
+        mylist = List.objects.create()
+        item = Item(list=mylist, text="")
+        with self.assertRaises(ValidationError):   # intergrity --> validationError
+            item.full_clean()  # save() --> full_clean()

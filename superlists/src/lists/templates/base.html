@@ -18,16 +18,24 @@
             
             <form method="POST" action="{% block form_action %}{% endblock %}">
                 <!-- # Added input group for priority selection -->
-              <div class="input-group">   
+              <div class="input-group">  
+
                   <select name="priority" id="id_priority" class="form-select" style="max-width: 130px;">
                       <option value="high">High</option>
                       <option value="medium" selected>Medium</option>
                       <option value="low">Low</option>
                   </select>
+                  
                   <input name="item_text" id="id_new_item" 
-                         class="form-control input-lg" 
+                         class="form-control form-control-lg {% if error %}is-invalid{% endif %}" 
                          placeholder="Enter a to-do item" />
                   {% csrf_token %}
+              </div>
+              
+              {% if error %}
+                <div class="invalid-feedback d-block">{{ error }}</div>
+              {% endif %}
+              
               </div>
             </form>
           </div>

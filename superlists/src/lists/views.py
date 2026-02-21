@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 from django.shortcuts import render
 from django.shortcuts import render, redirect  # <--- เพิ่ม redirect
 from lists.models import Item, List # <--- เพิ่ม List
@@ -14,22 +15,44 @@ def about_page(request):
 
 def view_list(request, list_id):
     our_list = List.objects.get(id=list_id)
-    #items = Item.objects.filter(list=our_list)
-    #return render(request, "list.html", {"items": items})
-    #return render(request, "list.html", {"items": items, "list": our_list})
-    return render(request, "list.html", {"list": our_list})
+    error = None # เตรียมตัวแปร error ไว้ก่อน
+
+    # ถ้ามีการพิมพ์ส่งข้อมูล (POST) เข้ามาที่ URL นี้
+    if request.method == 'POST':
+        priority = request.POST.get('priority', 'medium')
+        try:
+            item = Item(text=request.POST["item_text"], list=our_list, priority=priority)
+            item.full_clean()
+            item.save()
+            return redirect(f"/lists/{our_list.id}/")
+        except ValidationError:
+            # ถ้าเกิด Error ให้กำหนดข้อความ
+            error = "You can't have an empty list item"
+
+    # ถ้าเป็นแค่การเข้ามาดูเว็บปกติ (GET) หรือถ้าเกิด Error (POST แล้วพัง) ให้โชว์หน้านี้
+    return render(request, "list.html", {"list": our_list, "error": error})
 
 
 def new_list(request):
     nulist = List.objects.create()
-    # รับค่า priority (ถ้าไม่ส่งมา ให้เป็น medium)
     priority = request.POST.get('priority', 'medium')
     
-    Item.objects.create(
+    # 1. สร้าง Object ไว้ใน Memory ก่อน (ยังไม่เซฟลง DB)
+    item = Item(
         text=request.POST["item_text"], 
         list=nulist,
-        priority=priority # <--- บันทึก Priority ลงไป
+        priority=priority 
     )
+    
+    try:
+        item.full_clean()  # 2. ให้ Django ตรวจสอบว่าว่างไหม
+        item.save()        # 3. ถ้าไม่ว่าง ค่อยเซฟลง DB
+    except ValidationError:
+        nulist.delete()    # 4. ถ้าว่าง (Error) ให้ลบ List ที่เผลอสร้างไปเมื่อกี้ทิ้ง
+        error = "You can't have an empty list item"
+        # 5. ส่งหน้าเว็บเดิมกลับไป พร้อมข้อความ Error
+        return render(request, "home.html", {"error": error}) 
+        
     return redirect(f"/lists/{nulist.id}/")
 
 def add_item(request, list_id):
