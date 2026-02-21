@@ -40,3 +40,30 @@ class ItemValidationTest(FunctionalTest):
         self.browser.find_element(By.ID, "id_new_item").send_keys(Keys.ENTER)
         self.wait_for_row_in_list_table("1: Buy milk")
         self.wait_for_row_in_list_table("2: Make tea")
+
+    # 🟢 เพิ่มเทสต์นี้เข้าไปใหม่ for javascripts
+    def test_error_messages_are_cleared_on_input(self):
+        # 1. เปิดหน้าเว็บ และคลิกเข้าไปที่หน้า To-Do List
+        self.browser.get(self.live_server_url)
+        self.browser.find_element(By.PARTIAL_LINK_TEXT, "To-Do List").click() 
+        
+        # คลุมด้วย wait_for เพื่อบังคับให้ Selenium รอจนกว่าช่อง Input จะโหลดเสร็จ (เหลือบรรทัดเดียวพอ)
+        inputbox = self.wait_for(lambda: self.browser.find_element(By.ID, "id_new_item"))
+        inputbox.send_keys('Banter too thick')
+        inputbox.send_keys(Keys.ENTER)
+        self.wait_for_row_in_list_table('1: Banter too thick')
+
+        # 2. จงใจกด Enter ส่งช่องว่าง เพื่อบังคับให้ Error ปรากฏขึ้นมา
+        self.wait_for(lambda: self.browser.find_element(By.ID, "id_new_item")).send_keys(Keys.ENTER)
+
+        self.wait_for(lambda: self.assertTrue(
+            self.browser.find_element(By.CSS_SELECTOR, ".invalid-feedback").is_displayed()
+        ))
+
+        # 3. เริ่มพิมพ์ข้อความใหม่ลงไปในช่อง Input ("a")
+        self.wait_for(lambda: self.browser.find_element(By.ID, "id_new_item")).send_keys("a")
+
+        # 4. ตรวจสอบว่าข้อความ Error ถูกซ่อนไปแล้ว
+        self.wait_for(lambda: self.assertFalse(
+            self.browser.find_element(By.CSS_SELECTOR, ".invalid-feedback").is_displayed()
+        ))
