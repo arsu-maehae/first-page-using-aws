@@ -1,5 +1,4 @@
-{% load static %}  
-
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -19,9 +18,7 @@
             <h1>{% block header_text %}{% endblock %}</h1>
             
             <form method="POST" action="{% block form_action %}{% endblock %}">
-                <!-- # Added input group for priority selection -->
               <div class="input-group">  
-
                   <select name="priority" id="id_priority" class="form-select" style="max-width: 130px;">
                       <option value="high">High</option>
                       <option value="medium" selected>Medium</option>
@@ -34,10 +31,8 @@
                   {% csrf_token %}
               </div>
               
-              {% if error %}
-                <div class="invalid-feedback d-block">{{ error }}</div>
-              {% endif %}
-
+              <div class="invalid-feedback {% if error %}d-block{% endif %}" style="display: {% if error %}block{% else %}none{% endif %}; text-align: left; margin-top: 5px;">
+                  {{ error|default:"You can't have an empty list item" }}
               </div>
             </form>
           </div>
@@ -52,7 +47,7 @@
       </div>
 
     </div> 
-    
+
     <script src="{% static 'list.js' %}"></script>
 
   </body>

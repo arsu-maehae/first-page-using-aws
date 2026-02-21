@@ -2,8 +2,11 @@ from django.forms import ValidationError
 from django.shortcuts import render
 from django.shortcuts import render, redirect  # <--- เพิ่ม redirect
 from lists.models import Item, List # <--- เพิ่ม List
-def home_page(request):
+from django.http import JsonResponse # 🟢 เพิ่มบรรทัดนี้
 
+
+
+def home_page(request):
     # ดึงข้อมูลทั้งหมดออกมา
     # items = Item.objects.all()
     # ส่งไปที่ template ในชื่อ 'items'
@@ -15,21 +18,32 @@ def about_page(request):
 
 def view_list(request, list_id):
     our_list = List.objects.get(id=list_id)
-    error = None # เตรียมตัวแปร error ไว้ก่อน
+    error = None
 
-    # ถ้ามีการพิมพ์ส่งข้อมูล (POST) เข้ามาที่ URL นี้
     if request.method == 'POST':
         priority = request.POST.get('priority', 'medium')
         try:
             item = Item(text=request.POST["item_text"], list=our_list, priority=priority)
             item.full_clean()
             item.save()
-            return redirect(f"/lists/{our_list.id}/")
+            
+            # 🟢 ถ้าเป็นการส่งข้อมูลผ่าน JavaScript (AJAX)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'item_text': item.text,
+                    'priority': item.priority,
+                    'item_id': item.id,
+                    'list_id': our_list.id
+                })
+                
+            return redirect(our_list)
         except ValidationError:
-            # ถ้าเกิด Error ให้กำหนดข้อความ
             error = "You can't have an empty list item"
+            # 🟢 ส่ง Error กลับไปเป็น JSON ด้วย
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'error': error}, status=400)
 
-    # ถ้าเป็นแค่การเข้ามาดูเว็บปกติ (GET) หรือถ้าเกิด Error (POST แล้วพัง) ให้โชว์หน้านี้
     return render(request, "list.html", {"list": our_list, "error": error})
 
 
