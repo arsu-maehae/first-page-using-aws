@@ -7,6 +7,14 @@
         update_cache: true
       become: true
 
+    - name: Run test container
+      community.docker.docker_container:
+        name: testcontainer
+        state: started
+        image: busybox
+        command: echo hello world
+      become: true
+      
     - name: Add our user to the docker group, so we don't need sudo/become
       ansible.builtin.user:
         name: '{{ ansible_user }}'
@@ -16,8 +24,6 @@
 
     - name: Reset ssh connection to allow the user/group change to take effect
       ansible.builtin.meta: reset_connection
-
-# ... (Tasks เดิม: Install docker, Add user to group, Reset connection)
 
     - name: Build container image locally
       community.docker.docker_image:
@@ -50,6 +56,7 @@
         force_source: true
         state: present
 
+    # --- เริ่มส่วนจัดการความลับ (Secrets) ---
     - name: Ensure .secret-key file exists
       ansible.builtin.copy:
         dest: ~/.secret-key
@@ -62,31 +69,67 @@
         src: ~/.secret-key
       register: secret_key
 
-    - name: Ensure db.sqlite3 file exists outside container
-      ansible.builtin.file:
-        path: "{{ ansible_env.HOME }}/db.sqlite3"
-        state: touch
-        owner: 1234
-      become: true
+    - name: Ensure .db-password file exists
+      ansible.builtin.copy:
+        dest: ~/.db-password
+        content: "{{ lookup('password', '/dev/null length=32 chars=ascii_letters') }}"
+        mode: 0600
+        force: false
 
+    - name: Read DB password back from file
+      ansible.builtin.slurp:
+        src: ~/.db-password
+      register: db_password
+
+    # --- เริ่มส่วน Multi-Container (Network & Volume) ---
+    - name: Create Docker network for app and database
+      community.docker.docker_network:
+        name: superlists_network
+
+    - name: Create Docker volume for PostgreSQL
+      community.docker.docker_volume:
+        name: postgres_data
+
+    # --- รัน Database Container ---
+    - name: Run PostgreSQL database container
+      community.docker.docker_container:
+        name: db
+        image: postgres:15-alpine
+        state: started
+        recreate: true
+        networks:
+          - name: superlists_network
+        env:
+          POSTGRES_DB: "superlists_db"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "{{ db_password.content | b64decode }}"
+        mounts:
+          - type: volume
+            source: postgres_data
+            target: /var/lib/postgresql/data
+
+    # --- รัน Web App Container ---
     - name: Run container
       community.docker.docker_container:
         name: superlists
         image: superlists
         state: started
         recreate: true
+        networks:
+          - name: superlists_network  # เชื่อมเข้าวงแลนเดียวกับ DB
         env:
           DJANGO_DEBUG_FALSE: "1"
           DJANGO_SECRET_KEY: "{{ secret_key.content | b64decode }}"
           DJANGO_ALLOWED_HOST: "{{ inventory_hostname }}"
-          DJANGO_DB_PATH: "/home/nonroot/db.sqlite3"
-        mounts:
-          - type: bind
-            source: "{{ ansible_env.HOME }}/db.sqlite3"
-            target: /home/nonroot/db.sqlite3
+          # ชี้เป้าไปหา Database แทน SQLite เดิม
+          DATABASE_HOST: "db"
+          DATABASE_NAME: "superlists_db"
+          DATABASE_USER: "postgres"
+          DATABASE_PASSWORD: "{{ db_password.content | b64decode }}"
         ports:
           - "80:8888"
 
+    # --- รันคำสั่งอัปเดตฐานข้อมูล ---
     - name: Run migration inside container
       community.docker.docker_container_exec:
         container: superlists
