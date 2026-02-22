@@ -134,3 +134,9 @@
       community.docker.docker_container_exec:
         container: superlists
         command: ./manage.py migrate
+
+    # --- รันคำสั่งอัปเดตไฟล์ Static ---
+    - name: Run collectstatic inside container
+      community.docker.docker_container_exec:
+        container: superlists
+        command: ./manage.py collectstatic --noinput
